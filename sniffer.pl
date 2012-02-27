@@ -1,5 +1,4 @@
 #! /usr/bin/perl -w
-use Net::Pcap;
 use strict;
 
 print "arg1:", $ARGV[0], "\n";
@@ -23,5 +22,18 @@ if ($ARGV[0] ne "-i"){	#not interface then file need mods
 		}
 	}	
 }else{
+#main part of programm
+use Net::Pcap;
+	my $err = '';
+	my $dev = $ARGV[1];
 
+	#$dev = Net::Pcap::pcap_lookupdev(\$err);  # find a device
+	print "$dev \n";
+	my $pcap = Net::Pcap::pcap_open_live($dev, 1024, 1, 0, \$err)
+		or die "Can't open devvice $dev: $err\n";
+	while (<$pcap>){
+		print "$_ \n";
+	}		
+	Net::Pcap::pcap_close($pcap);
+			
 }
