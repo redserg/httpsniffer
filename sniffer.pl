@@ -27,15 +27,13 @@ if ($ARGV[0] ne "-i"){	#not interface then file, bad bad, need mods!!
 #main part of programm
 use Net::Pcap;
 	my $err = '';
-	my $dev = $ARGV[1];
+	my ($_,$dev, @filter_list) = $ARGV;
 	
-	my $filter_str = "tcp and port 80";
+	my $filter_str = join#"tcp and port 80";
 	my $net;
 	my $mask;
 	my $filter;
 	
-	
-	#$dev = Net::Pcap::pcap_lookupdev(\$err);  # find a device
 	print "$dev \n";
 	my $pcap = Net::Pcap::pcap_open_live($dev, 1024, 1, 0, \$err)
 		or die "Can't open devvice $dev: $err\n";
@@ -46,8 +44,6 @@ use Net::Pcap;
 	
 
 	Net::Pcap::pcap_loop($pcap, 10, \&process_packet, "user data");
-#	print "my %http_header = (";
-#	print ")\nEND\n\n";
 
 	print_base();
 	Net::Pcap::pcap_close($pcap);
@@ -55,28 +51,40 @@ use Net::Pcap;
 }
 
 
-sub process_packet {	#need to slie tcp/ip part!!
+sub process_packet {
 	my($user_data, $header, $packet) = @_;
-	my ($firststr, @packet_by_str) = split /\R/, $packet;
+	push_http_pack (extract_http_pack($packet));
 
-	push_http_pack (@packet_by_str);
-#	tcp_pack_editing_print(@packet_by_str);
+}
+sub extract_http_pack{	#bad work !!
+	my ($packet) = @_;	#need easyfication
+	my (@full_packet_by_str) = split /\R/, $packet;
+	my ($firststr, @packet_by_str) = @full_packet_by_str;
+	return @packet_by_str;
+}
+sub push_http_pack {	# get inf from packet and push it in base
+	my (@packet_by_str) = @_;	#изучаем перл глубже стр70
+	foreach (@packet_by_str){
+		if(/(\w.*?)\:\s*(\w[^\f\r\n].*[^\f\r\n])\s*/){		#bad bad!!!				
+			
+			##$header_base{$1} = [] unless exist header_base{$1};
+			push @{ $header_base{$1}}, $2; #автовификация
 
-#	my $key;
-#	my $val;
-	#print "PACKET:\n $packet\n";
-	#print "PACKET_BY_STR:\n@packet_by_str\n";
-
+		}
+		elsif(/\R/){	# тело отделено от заголовка строкой
+			last;
+		}
+	} 
 }
 sub print_base{
 
 	my $key;
 	my $value;
-	print "my %header_base = (";
+	print "my %header_base = (\n";
 
 	while (($key, $value) = each %header_base){
 		foreach (@{$value}){
-			print "\t\'$key\' = > \'$_\'\n";
+			print "\t\'$key\' = > \'$_\',\n";
 		}
 		print "\n";
 	}
@@ -84,28 +92,9 @@ sub print_base{
 
 
 }
-sub push_http_pack {	# get inf from packet and push it in base
-	my (@packet_by_str) = @_;	#изучаем перл глубже стр70
-	foreach (@packet_by_str){
-		if(/(\w.*?)\:\s*(\w[^\f\r\n].*[^\f\r\n])\s*/){						
-			
-			##$header_base{$1} = [] unless exist header_base{$1};
-			push @{ $header_base{$1}}, $2; #автовификация
-
-		}
-		elsif(/\R/){
-			last;
-		}
-	} 
-}
-
-sub tcp_pack_editing_print {	# get inf from packet and print it
+sub tcp_pack_editing_print {	# get inf from packet and print it #wont be use
 
 	my ($firststr,@packet_by_str) = @_;
-
-#	my $key;
-#	my $value;
-	
 	foreach (@packet_by_str){
 		
 		if(/(\w.*?)\:\s*(\w[^\f\r\n].*[^\f\r\n])\s*/){				
@@ -116,12 +105,5 @@ sub tcp_pack_editing_print {	# get inf from packet and print it
 		}
 		print "\n";
 	} 
-		# ...
-
-#	($key, $value) = split /:/, $str;
-#	return ($key, $value);
-	
 }
-sub extract_http_pack{
 
-}
