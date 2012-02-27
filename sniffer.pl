@@ -1,40 +1,46 @@
 #! /usr/bin/perl -w
 use strict;
 
-sub process_packet {
+sub process_packet {	#need to slie tcp/ip part!!
 	my($user_data, $header, $packet) = @_;
 	my @packet_by_str = split /\R/, $packet;
-	my $key;
-	my $val;
+
+	pack_editing(@packet_by_str);
+
+#	my $key;
+#	my $val;
 	#print "PACKET:\n $packet\n";
 	#print "PACKET_BY_STR:\n@packet_by_str\n";
+
+}
+
+sub pack_editing {	# get inf from str
+
+	my @packet_by_str = @_;
+
+#	my $key;
+#	my $value;
+	
 	print "my %http_header = (";
 	foreach (@packet_by_str){
 		
-		if(/(.*):(.*)/){				
+		if(/(.*?):(.*)/){				
 			#($key, $val) = &str_editing($_);
 			print "\t$1 => $2\n";
 		}
 	} 
 		# ...
 	print ")\nNEXT\n\n";
-}
 
-sub str_editing {	# get inf from str
-	my $str = @_;
-
-	my $key;
-	my $value;
-	
-	($key, $value) = split /:/, $str;
-	return ($key, $value);
+#	($key, $value) = split /:/, $str;
+#	return ($key, $value);
 	
 }
 
 print "arg1:", $ARGV[0], "\n";
 my %output_base;
 
-if ($ARGV[0] ne "-i"){	#not interface then file need mods
+if ($ARGV[0] ne "-i"){	#not interface then file, bad bad, need mods!!
 	if (defined($_=<>)){
 		print ("$1 \n") if (m/(\d{2}:\d{2}:\d{2}\.\d{6}).*/); # take ti,e like 17:26:42.643526
 		while (<>){
