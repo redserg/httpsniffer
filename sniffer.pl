@@ -29,10 +29,8 @@ use Net::Pcap;
 	my $err = '';
 	#my $dev;
 	my ($_, $dev, @filter_list) = @ARGV;
-	if( attend_str_in_array("tcp", @filter_list)){
-		print "y\n";
-	}	
 	my $filter_str = join " ", @filter_list;#"tcp and port 80";
+	$filter_str =  "tcp and port 80 and " .  $filter_str;
 	my $net;
 	my $mask;
 	my $filter;
@@ -40,14 +38,14 @@ use Net::Pcap;
 	print "$dev \n";
 	print "$filter_str\n";
 	my $pcap = Net::Pcap::pcap_open_live($dev, 1024, 1, 0, \$err)
-		or die "Can't open devvice $dev: $err\n";
+		or die "Can't open device $dev: $err\n";
 
 	Net::Pcap::pcap_lookupnet($dev, \$net, \$mask, \$err);
 	Net::Pcap::pcap_compile($pcap, \$filter, $filter_str, 1, $mask);
 	Net::Pcap::pcap_setfilter($pcap, $filter);
 	
 
-	Net::Pcap::pcap_loop($pcap, 10, \&process_packet, "user data");
+	Net::Pcap::pcap_loop($pcap, 100, \&process_packet, "user data");
 
 	print_base();
 	Net::Pcap::pcap_close($pcap);
@@ -61,7 +59,8 @@ sub process_packet {
 sub extract_http_pack{	#bad work !!
 	my ($packet) = @_;	#need easyfication
 	my (@full_packet_by_str) = split /\R/, $packet;
-	my ($firststr, @packet_by_str) = @full_packet_by_str;
+	#my ($firststr, @packet_by_str) = @full_packet_by_str;
+	my (@packet_by_str) = @full_packet_by_str;
 	return @packet_by_str;
 }
 sub push_http_pack {	# get inf from packet and push it in base
@@ -74,7 +73,7 @@ sub push_http_pack {	# get inf from packet and push it in base
 				push @{ $header_base{$1}}, $2  #автовификация
 			}
 		}
-		elsif(/\R/){	# тело отделено от заголовка строкой
+		elsif(/\n/){	# тело отделено от заголовка строкой
 			last;
 		}
 	} 
