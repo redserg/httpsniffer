@@ -27,14 +27,18 @@ if ($ARGV[0] ne "-i"){	#not interface then file, bad bad, need mods!!
 #main part of programm
 use Net::Pcap;
 	my $err = '';
-	my ($_,$dev, @filter_list) = $ARGV;
-	
-	my $filter_str = join#"tcp and port 80";
+	#my $dev;
+	my ($_, $dev, @filter_list) = @ARGV;
+	if( attend_str_in_array("tcp", @filter_list)){
+		print "y\n";
+	}	
+	my $filter_str = join " ", @filter_list;#"tcp and port 80";
 	my $net;
 	my $mask;
 	my $filter;
 	
 	print "$dev \n";
+	print "$filter_str\n";
 	my $pcap = Net::Pcap::pcap_open_live($dev, 1024, 1, 0, \$err)
 		or die "Can't open devvice $dev: $err\n";
 
@@ -50,11 +54,9 @@ use Net::Pcap;
 			
 }
 
-
 sub process_packet {
 	my($user_data, $header, $packet) = @_;
 	push_http_pack (extract_http_pack($packet));
-
 }
 sub extract_http_pack{	#bad work !!
 	my ($packet) = @_;	#need easyfication
@@ -65,11 +67,12 @@ sub extract_http_pack{	#bad work !!
 sub push_http_pack {	# get inf from packet and push it in base
 	my (@packet_by_str) = @_;	#изучаем перл глубже стр70
 	foreach (@packet_by_str){
-		if(/(\w.*?)\:\s*(\w[^\f\r\n].*[^\f\r\n])\s*/){		#bad bad!!!				
+		if(/(\w.*?)\:\s*(\w.*[^\f\r\n])\s*/){		#bad bad!!!				
 			
 			##$header_base{$1} = [] unless exist header_base{$1};
-			push @{ $header_base{$1}}, $2; #автовификация
-
+			if (!attend_str_in_array( $2, @{ $header_base{$1}})  ){
+				push @{ $header_base{$1}}, $2  #автовификация
+			}
 		}
 		elsif(/\R/){	# тело отделено от заголовка строкой
 			last;
@@ -84,13 +87,22 @@ sub print_base{
 
 	while (($key, $value) = each %header_base){
 		foreach (@{$value}){
-			print "\t\'$key\' = > \'$_\',\n";
+			print "\t\'$key\' => \'$_\',\n";
 		}
 		print "\n";
 	}
 	print ")\nEND\n\n";
 
 
+}
+sub attend_str_in_array{
+	my ($element, @array) = @_;
+	for (@array){
+		if ($element eq $_){
+			return 1;
+		}
+	}
+	return 0;
 }
 sub tcp_pack_editing_print {	# get inf from packet and print it #wont be use
 
