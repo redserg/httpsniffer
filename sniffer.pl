@@ -1,8 +1,14 @@
 #! /usr/bin/perl -w
 use strict;
+  use NetPacket::Ethernet qw(:strip);
+  use NetPacket::IP qw(:strip);
+  use NetPacket::TCP;
+
 #хеш ссылок на массив значений заголовков, по названиям
 my %header_base; 
-
+if (is_field("Date")  ){
+				print "1\n";
+			}
 print "arg1:", $ARGV[0], "\n";
 
 if ($ARGV[0] ne "-i"){	#not interface then file, bad bad, need mods!!
@@ -45,7 +51,7 @@ use Net::Pcap;
 	Net::Pcap::pcap_setfilter($pcap, $filter);
 	
 
-	Net::Pcap::pcap_loop($pcap, 10, \&process_packet, "user data");
+	Net::Pcap::pcap_loop($pcap, 100, \&process_packet, "user data");
 
 	print_base();
 	Net::Pcap::pcap_close($pcap);
@@ -54,28 +60,37 @@ use Net::Pcap;
 
 sub process_packet {
 	my($user_data, $header, $packet) = @_;
-	#printf ("PACK:\n%s\n\n",$packet);
 	push_http_pack (extract_http_pack($packet));
 }
-sub extract_http_pack{	#bad work !!
+sub extract_http_pack{
 	my ($packet) = @_;	#need easyfication
+	my $tcp_obj = NetPacket::TCP->decode(
+		NetPacket::IP::ip_strip(
+			NetPacket::Ethernet::eth_strip(
+				$packet
+			)
+		)
+	);
 	my (@full_packet_by_str) = split /\R/, $packet;
-	#my ($firststr, @packet_by_str) = @full_packet_by_str;
 	my (@packet_by_str) = @full_packet_by_str;
 	return @packet_by_str;
 }
 sub push_http_pack {	# get inf from packet and push it in base
 	my (@packet_by_str) = @_;	#изучаем перл глубже стр70
 	foreach (@packet_by_str){
-		if(/([\w-]+):\s*([\w][^\f\r\n]*)\s*/){	#/(\w.*?)\:\s*(\w.*[^\f\r\n])\s*/){		#bad bad!!!				
+		
+		if(/\R+/){	# тело отделено от заголовка строкой
+			last;
+		}
+		elsif(m/([\w]+?):\h*(.+)\h*/s){#/([\w-]+?):\h*([\w][^\f\r\n]*)\h*/(/([\w-]+):\s*([\w][^\f\r\n]*)\s*/){	#/(\w.*?)\:\s*(\w.*[^\f\r\n])\s*/){		#bad bad!!!				
 			
 			##$header_base{$1} = [] unless exist header_base{$1};
-			if (!attend_str_in_array( $2, @{ $header_base{$1}})  ){
+			if (is_field($1) && (!attend_str_in_array( $2, @{ $header_base{$1}}))  ){
 				push @{ $header_base{$1}}, $2; #автовификация
 			}
-			print "$1: $2\n";
+			#print "$_\n";
 		}
-		elsif(/\R+/){	# тело отделено от заголовка строкой
+		if(/\R+/){	# тело отделено от заголовка строкой
 			last;
 		}
 	} 
@@ -102,6 +117,13 @@ sub attend_str_in_array{
 		if ($element eq $_){
 			return 1;
 		}
+	}
+	return 0;
+}
+sub is_field{
+	my ($arg) = @_;
+	if ("$arg" =~ m/[\w]{2,}./ && !("$arg" =~ m/cookie/i) ){
+		return 1;
 	}
 	return 0;
 }
