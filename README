@@ -1,3 +1,11 @@
-sniffer [files]
+Построение UA-профилей.
+
+Утилита получает на вход PCAP-файл, содержащий HTTP-траффик, или имя
+сетевого интерфейса, с которого снимается HTTP-траффик в promiscous
+mode, а также параметры фильтрации BPF. Результатом работы утилиты
+является вывод на stdout Perl / YAML / XML - структуры, соответствующей
+обнаруженным уникальным (!) клиентским HTTP-заголовкам. 
+
+-f FILE_NAME BPF 
 	or
-sniffer -i interfacename BKF filter words
+-i INTERFACE BPF
