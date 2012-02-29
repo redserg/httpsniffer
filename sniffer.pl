@@ -168,8 +168,8 @@ sub attend_str_in_array{
 sub is_field{
 	my ($arg) = @_;
 	return (
-		 (	("$arg" =~ m/^[A-Z]\w{3,}$/) #||
-		 	#(&attend_str_in_array($arg, @headers))
+		 (	("$arg" =~ m/^[A-Z]\w{3,}$/) ||
+		 	(&attend_str_in_array($arg, @headers))
 		 )&&
 		 !("$arg" =~ m/^cookie/i)
 	);
