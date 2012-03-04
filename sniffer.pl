@@ -5,10 +5,18 @@ use Net::Pcap;
   use NetPacket::IP qw(:strip);
   use NetPacket::TCP;
 #хеш ссылок на массив значений заголовков, по названиям
-my %header_base; 
+my @user_base; 
 
 my $default_filter = "tcp and port 80 ";
 my @headers = ("Age", "TE", "URI", "Via");
+my @is_important_headers = (
+	"User-Agent", 
+	"Accept", 
+	"Accept-Language", 
+	"Accept-Encoding",
+	"Accept-Charset",
+	"Refer"	);
+
 my $count = 10;
 my @args;
 
@@ -84,6 +92,8 @@ if(defined($_ = $ARGV[0])){
 
 	exit (0);
 }
+print "sniffer.pl [ -c count ] \n[ - i interface ]  [ BPF ]\nOR\n[ -f file] [ BPF ]\n";
+
 
 sub build_filter{
 	my (@filter_list) = @_;
@@ -123,15 +133,18 @@ sub extract_http_pack{
 }
 sub push_http_pack {	# get inf from packet and push it in base
 	my (@packet_by_str) = @_;
+	my $newref;
+	my $oldref;
+	my $Request_Header_flag = 0;
 	foreach (@packet_by_str){
 		if(m/^\h*([!-~]*?):\h*(.+)\h*$/s){#m/\h*([A-Z]\w{2,}):\h*(\w{2,}.+)\h*/s
-
-			##$header_base{$1} = [] unless exist header_base{$1};
-			if (&is_field($1) && (!&attend_str_in_array( $2, @{ $header_base{$1}}))  ){
-				push @{ $header_base{$1}}, $2; #автовификация
+			#make a new hash from imporrtant headers by this packet
+			if (&is_important($1) ){
+				${$newref}{$1} = $2;
+				$Request_Header_flag = 1	if($1 eq "User-Agent"); 
 			}
 			else{
-				#warn "NOTHEADER(or is ib base):\t$1\nIN:$_\n";
+				#warn "NOTIMPHEADER(or is ib base):\t$1\nIN:$_\n";
 			}
 #			warn "PASSed:\t\t$_\n";
 		}		
@@ -143,19 +156,30 @@ sub push_http_pack {	# get inf from packet and push it in base
 #			warn "ABORTED:\t\t$_\n";
 		}
 	} 
+	#if this packet is from new user, add it to array of bases
+	if($Request_Header_flag){
+			foreach $oldref (@user_base){
+			if (&user_eq($newref, $oldref)){ #is it old user?
+				return -1;
+			}
+		}
+		push @user_base, $newref; #if it new
+	}
 }
 sub print_base{
 	my $key;
 	my $value;
-	print "my %header_base = (\n";
+	my $i = 0;
 
-	while (($key, $value) = each %header_base){
-		foreach (@{$value}){
-			print "\t\'$key\' => \'$_\',\n";
-		}
-		print "\n";
+	foreach (@user_base){
+		print "my user_$i = (\n";
+			while(($key, $value) = each %$_ ){
+				print "\t\'$key\' => \'$value\',\n";
+			}
+		print ")\n\n";
+		++$i;
 	}
-	print ")\n\n";
+
 }
 sub attend_str_in_array{
 	my ($element, @array) = @_;
@@ -166,12 +190,18 @@ sub attend_str_in_array{
 	}
 	return 0;
 }
-sub is_field{
+sub is_important{
 	my ($arg) = @_;
-	return (
-		 (	("$arg" =~ m/^[A-Z]\w{3,}$/) ||
-		 	(&attend_str_in_array($arg, @headers))
-		 )&&
-		 !("$arg" =~ m/^cookie/i)
-	);
+	return &attend_str_in_array($arg, @is_important_headers);
+#	return (
+#		 (	("$arg" =~ m/^[A-Z]\w.*$/) ||
+#		 	(&attend_str_in_array($arg, @headers))
+#		 )&&
+#		 !("$arg" =~ m/^cookie/i)
+#	);
+}
+sub user_eq{
+	my ($r1, $r2) = @_; 
+	return (	defined($$r1{"User-Agent"}) &&
+		$$r1{"User-Agent"} eq  $$r2{"User-Agent"});
 }
