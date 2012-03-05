@@ -132,8 +132,10 @@ sub process_pcap{
 }
 sub process_packet {
 	my($user_data, $header, $packet) = @_;
+	warn "PACKET:\n$packet\nEND\n";
 	#	Net::Pcap::pcap_dump($user_data, $header, $packet);
-	&push_http_pack (extract_http_pack($packet));
+	#&push_http_pack (extract_http_pack($packet));
+	&push_http_pack ($packet);
 }
 sub extract_http_pack{
 	my ($packet) = @_;
@@ -155,7 +157,8 @@ sub push_http_pack {	# get inf from packet and push it in base
 	my $oldref;
 	my $Request_Header_flag = 0;
 	foreach (@packet_by_str){
-		if(m/^\h*([!-~]*?):\h*(.+)\h*$/s){
+		if(m/^([\w-]+?):\h*(.+)/){
+			#(m/^\h*([!-~]*?):\h*(.+)\h*$/s){
 			#make a new hash from imporrtant headers by this packet
 			if (&is_important($1) ){
 				${$newref}{$1} = $2;
@@ -166,10 +169,10 @@ sub push_http_pack {	# get inf from packet and push it in base
 			}
 			#warn "PASSed:\t\t$_\n";
 		}		
-		elsif($_ eq ""){	# тело отделено от заголовка строкой
+		#elsif($_ eq ""){	# тело отделено от заголовка строкой
 		#	warn "EMPTY:\t\t$_\n";
-			last;
-		}
+		#	last;
+		#}
 		#else{
 		#	warn "ABORTED:\t\t$_\n";
 		#}
