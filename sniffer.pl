@@ -1,5 +1,5 @@
 #! /usr/bin/perl -w
-# вызывает warning о неинициализированное переменной
+# вызывает warning о неинициализированной переменной
 # "," в конце вывода Perl структуры
 use strict;
 use Net::Pcap;
@@ -7,6 +7,7 @@ use Net::Pcap;
   use NetPacket::IP qw(:strip);
   use NetPacket::TCP;
 #use XML::Simple;
+#use YAML;
 
 #хеш ссылок на массив значений заголовков, по названиям
 my @user_base; 
@@ -20,7 +21,7 @@ my @important_headers = (
 	"Accept-Language", 
 	"Accept-Encoding",
 	"Accept-Charset",
-	"Refer",
+#	"Refer",
 	 
 	);
 
@@ -33,6 +34,7 @@ while (defined ($_ = shift @ARGV)){
 	}
 	elsif($_ eq "-h"){
 		warn "sniffer.pl [ -c count ] [ -pxy ]\n[ - i interface ]  [ BPF ]\nOR\n[ -f file] [ BPF ]\n";
+		exit (0);
 	}
 	elsif($_ eq "-p"){
 		$structure_type = "p";
@@ -143,11 +145,12 @@ sub extract_http_pack{
 		)
 	);
 	#	warn "\tSTART\n$tcp_obj->{data} \n\tEND\n";
-	my (@packet_by_str) = split /\R/, $tcp_obj->{data};
-	return @packet_by_str;
+	#my (@packet_by_str) = split /\R/, $tcp_obj->{data};
+	return $tcp_obj->{data};#@packet_by_str;
 }
 sub push_http_pack {	# get inf from packet and push it in base
-	my (@packet_by_str) = @_;
+	my ($packet) = @_;
+	my (@packet_by_str) = split /\R/, $packet;
 	my $newref;
 	my $oldref;
 	my $Request_Header_flag = 0;
@@ -171,14 +174,19 @@ sub push_http_pack {	# get inf from packet and push it in base
 		#	warn "ABORTED:\t\t$_\n";
 		#}
 	} 
-	#if this packet is from new user, add it to array of bases or complit old one
+	#if this packet is from new user, add it to array of bases
 	if($Request_Header_flag){
-			foreach $oldref (@user_base){
+		foreach (@important_headers){
+			${$newref}{$_} = "" unless(defined(${$newref}{$_}));		
+		}
+		${$newref}{"packet"} = $packet;
+		foreach $oldref (@user_base){
 			if (&user_eq($newref, $oldref)){ #is it old user?
-				return 0;
+				return 1;
 			}
 		}
 		push @user_base, $newref; #if it new
+		return 2;
 	}
 }
 sub print_base{
@@ -189,8 +197,10 @@ sub print_base{
 			print "my \$user_$i = (\n";
 				foreach $temp (@important_headers){
 					print "\t\'$temp\' => \'$$_{$temp}\',\n"; #warning if it unitialized
+
 				}
 			print ")\n\n";
+			print "PACKET:$$_{packet}\n";
 			++$i;
 		}
 	}
@@ -246,7 +256,6 @@ sub user_eq{
 	}
 	return 1;
 }
-
 sub greeting(){
 	my ($count,$flag, $dev, $filter_str) = @_;
 	warn "getting $count packets\n";
