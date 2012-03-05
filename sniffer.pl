@@ -77,9 +77,9 @@ if(defined($_ = $ARGV[0])){
 		Net::Pcap::pcap_compile($pcap, \$filter, $filter_str, 1, $mask)
 			and die "Can't compile filter:\t$filter_str\n";
 
-#		my $dump_file = 'network.dmp';
-#		my $dumper = Net::Pcap::pcap_dump_open($pcap, $dump_file);
-#		Net::Pcap::pcap_loop($pcap, 10, \&process_packet, $dumper);
+	#		my $dump_file = 'network.dmp';
+	#		my $dumper = Net::Pcap::pcap_dump_open($pcap, $dump_file);
+	#		Net::Pcap::pcap_loop($pcap, 10, \&process_packet, $dumper);
 
 		&process_pcap($pcap, $filter);
 
@@ -93,6 +93,8 @@ if(defined($_ = $ARGV[0])){
 	exit (0);
 }
 print "sniffer.pl [ -c count ] \n[ - i interface ]  [ BPF ]\nOR\n[ -f file] [ BPF ]\n";
+exit (-1);
+
 
 
 sub build_filter{
@@ -106,7 +108,6 @@ sub build_filter{
 	}
 	return $filter_str;
 }
-
 sub process_pcap{
 	my ($pcap, $filter) = @_;
 	Net::Pcap::pcap_setfilter($pcap, $filter);
@@ -115,7 +116,7 @@ sub process_pcap{
 }
 sub process_packet {
 	my($user_data, $header, $packet) = @_;
-#	Net::Pcap::pcap_dump($user_data, $header, $packet);
+	#	Net::Pcap::pcap_dump($user_data, $header, $packet);
 	&push_http_pack (extract_http_pack($packet));
 }
 sub extract_http_pack{
@@ -127,7 +128,7 @@ sub extract_http_pack{
 			)
 		)
 	);
-#	warn "\tSTART\n$tcp_obj->{data} \n\tEND\n";
+	#	warn "\tSTART\n$tcp_obj->{data} \n\tEND\n";
 	my (@packet_by_str) = split /\R/, $tcp_obj->{data};
 	return @packet_by_str;
 }
@@ -146,21 +147,26 @@ sub push_http_pack {	# get inf from packet and push it in base
 			else{
 				#warn "NOTIMPHEADER(or is ib base):\t$1\nIN:$_\n";
 			}
-#			warn "PASSed:\t\t$_\n";
+			#warn "PASSed:\t\t$_\n";
 		}		
 		elsif($_ eq ""){	# тело отделено от заголовка строкой
-#			warn "EMPTY:\t\t$_\n";
+		#	warn "EMPTY:\t\t$_\n";
 			last;
 		}
-		else{
-#			warn "ABORTED:\t\t$_\n";
-		}
+		#else{
+		#	warn "ABORTED:\t\t$_\n";
+		#}
 	} 
-	#if this packet is from new user, add it to array of bases
+	#if this packet is from new user, add it to array of bases or complit old one
 	if($Request_Header_flag){
 			foreach $oldref (@user_base){
 			if (&user_eq($newref, $oldref)){ #is it old user?
-				return -1;
+				foreach my $temp(@is_important_headers){	#adding new headers for this user
+					unless(defined ($$oldref{$temp})){
+						$$oldref{$temp} = $$newref{$temp} if (defined($$newref{$temp}));
+					}			
+				}
+				return 0;
 			}
 		}
 		push @user_base, $newref; #if it new
@@ -179,7 +185,6 @@ sub print_base{
 		print ")\n\n";
 		++$i;
 	}
-
 }
 sub attend_str_in_array{
 	my ($element, @array) = @_;
@@ -193,12 +198,12 @@ sub attend_str_in_array{
 sub is_important{
 	my ($arg) = @_;
 	return &attend_str_in_array($arg, @is_important_headers);
-#	return (
-#		 (	("$arg" =~ m/^[A-Z]\w.*$/) ||
-#		 	(&attend_str_in_array($arg, @headers))
-#		 )&&
-#		 !("$arg" =~ m/^cookie/i)
-#	);
+	#	return (
+	#		 (	("$arg" =~ m/^[A-Z]\w.*$/) ||
+	#		 	(&attend_str_in_array($arg, @headers))
+	#		 )&&
+	#		 !("$arg" =~ m/^cookie/i)
+	#	);
 }
 sub user_eq{
 	my ($r1, $r2) = @_; 
