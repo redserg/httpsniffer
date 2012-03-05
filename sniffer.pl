@@ -132,10 +132,10 @@ sub process_pcap{
 }
 sub process_packet {
 	my($user_data, $header, $packet) = @_;
-	warn "PACKET:\n$packet\nEND\n";
+	#warn "PACKET:\n$packet\nEND\n";
 	#	Net::Pcap::pcap_dump($user_data, $header, $packet);
 	#&push_http_pack (extract_http_pack($packet));
-	&push_http_pack ($packet);
+	&push_http_pack (&extract_http_pack($packet));
 }
 sub extract_http_pack{
 	my ($packet) = @_;
