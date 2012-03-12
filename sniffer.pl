@@ -1,22 +1,20 @@
 #! /usr/bin/perl -w
-# вызывает warning о неинициализированной переменной
 # "," в конце вывода Perl структуры
 use strict;
-use Net::Pcap;
+# use Net::Pcap;
 use Net::Pcap::Reassemble;
   use NetPacket::Ethernet qw(:strip);
   use NetPacket::IP qw(:strip);
   use NetPacket::TCP;
 #use XML::Simple;
 #use YAML;
+$Net::Pcap::Reassemble::debug = 1;
 
 #хеш ссылок на массив значений заголовков, по названиям
 my @user_base; 
 my $structure_type = "p";
-
-
 my $default_filter = "tcp and port 80 ";
-my @headers = ("Age", "TE", "URI", "Via");
+
 my @important_headers = (
 	"User-Agent",
 	"Accept", 
