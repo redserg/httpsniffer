@@ -3,6 +3,7 @@
 # "," в конце вывода Perl структуры
 use strict;
 use Net::Pcap;
+use Net::Pcap::Reassemble;
   use NetPacket::Ethernet qw(:strip);
   use NetPacket::IP qw(:strip);
   use NetPacket::TCP;
@@ -12,6 +13,7 @@ use Net::Pcap;
 #хеш ссылок на массив значений заголовков, по названиям
 my @user_base; 
 my $structure_type = "p";
+
 
 my $default_filter = "tcp and port 80 ";
 my @headers = ("Age", "TE", "URI", "Via");
@@ -28,7 +30,7 @@ my @important_headers = (
 my $count = 0x7fffffff;
 my @args;
 
-while (defined ($_ = shift @ARGV)){
+while (defined ($_ = shift @ARGV)){	# Flags
 	if ($_ eq "-c"){
 		$count = shift @ARGV;
 	}
@@ -87,7 +89,7 @@ if(defined($_ = $ARGV[0])){
 		&greeting($count,"i",$dev,$filter_str);
 
 
-		my $pcap = Net::Pcap::pcap_open_live($dev, 1024, 1, 0, \$err)
+		my $pcap = Net::Pcap::pcap_open_live($dev, 65535, 1, 0, \$err)
 			or die "Can't open device $dev: $err\n";
 
 		Net::Pcap::pcap_lookupnet($dev, \$net, \$mask, \$err)
@@ -106,7 +108,7 @@ if(defined($_ = $ARGV[0])){
 		die "bad sintax:$_\nsniffer.pl [ -c count ] \n[ - i interface ]  [ BPF ]\nOR\n[ -f file] [ BPF ]\n";
 	}
 
-	&print_base();
+&print_base();
 
 	exit (0);
 }
@@ -127,15 +129,59 @@ sub build_filter{
 sub process_pcap{
 	my ($pcap, $filter) = @_;
 	Net::Pcap::pcap_setfilter($pcap, $filter);
-	Net::Pcap::pcap_loop($pcap, $count, \&process_packet, "user data");
+	Net::Pcap::Reassemble::loop($pcap, $count, \&process_packet, "user data");
+	# Net::Pcap::pcap_loop($pcap, $count, \&process_packet, "user data");
 	Net::Pcap::pcap_close($pcap);
 }
 sub process_packet {
 	my($user_data, $header, $packet) = @_;
 	#warn "PACKET:\n$packet\nEND\n";
-	#	Net::Pcap::pcap_dump($user_data, $header, $packet);
-	#&push_http_pack (extract_http_pack($packet));
-	&push_http_pack (&extract_http_pack($packet));
+		#	Net::Pcap::pcap_dump($user_data, $header, $packet);
+		#&push_http_pack (extract_http_pack($packet));
+		# # print "RAW_PACKET\n$packet\nEND\n";
+		# # ##temporaly i input other functions here
+		# # $packet = $header . $packet;
+		# my $tcp_obj = NetPacket::TCP->decode(
+		#  	NetPacket::IP::ip_strip(
+		#  		NetPacket::Ethernet::eth_strip(
+		# 			$packet
+		# 		)
+		# 	)
+		# );	
+		# # print "\nFORMATED_PACKET\n".$tcp_obj->{data}."\nEND\n";
+
+		# my (@packet_by_str) = split /\R/, $packet;
+		# my $newref;
+		# my $oldref;
+		# my $Request_Header_flag = 0;
+		# foreach (@packet_by_str){
+		# 	if(m/^(.+?):\h*(.+)$/){
+		# 		#make a new hash from important headers by this packet
+		# 		if (&is_important($1) ){
+		# 			${$newref}{$1} = $2;
+		# 			$Request_Header_flag = 1; 
+		# 		}
+
+		# 	}		
+		# } 
+		# if($Request_Header_flag){
+		# 	# return 0 unless (defined(${$newref}{"User-Agent"}));
+		# 	foreach (@important_headers){
+		# 		${$newref}{$_} = "" unless(defined(${$newref}{$_}));		
+		# 	}
+		# 	# ${$newref}{"packet"} = $packet;
+		# 	foreach $oldref (@user_base){
+		# 		if (&user_eq($newref, $oldref)){ #is it old user?
+		# 			return 1;
+		# 		}
+		# 	}
+		# 	push @user_base, $newref; #if it new
+		# 	return 2;
+		# }
+
+
+
+	&push_http_pack($packet); #(&extract_http_pack($packet));
 }
 sub extract_http_pack{
 	my ($packet) = @_;
@@ -147,8 +193,7 @@ sub extract_http_pack{
 		)
 	);
 	#	warn "\tSTART\n$tcp_obj->{data} \n\tEND\n";
-	#my (@packet_by_str) = split /\R/, $tcp_obj->{data};
-	return $tcp_obj->{data};#@packet_by_str;
+	return $tcp_obj->{data};
 }
 sub push_http_pack {	# get inf from packet and push it in base
 	my ($packet) = @_;
@@ -158,15 +203,14 @@ sub push_http_pack {	# get inf from packet and push it in base
 	my $Request_Header_flag = 0;
 	foreach (@packet_by_str){
 		if(m/^([\w-]+?):\h*(.+)/){
-			#(m/^\h*([!-~]*?):\h*(.+)\h*$/s){
-			#make a new hash from imporrtant headers by this packet
+			#make a new hash from important headers by this packet
 			if (&is_important($1) ){
 				${$newref}{$1} = $2;
 				$Request_Header_flag = 1; 
 			}
-			else{
+			#else{
 				#warn "NOTIMPHEADER(or is ib base):\t$1\nIN:$_\n";
-			}
+			#}
 			#warn "PASSed:\t\t$_\n";
 		}		
 		#elsif($_ eq ""){	# тело отделено от заголовка строкой
@@ -182,7 +226,6 @@ sub push_http_pack {	# get inf from packet and push it in base
 		foreach (@important_headers){
 			${$newref}{$_} = "" unless(defined(${$newref}{$_}));		
 		}
-		${$newref}{"packet"} = $packet;
 		foreach $oldref (@user_base){
 			if (&user_eq($newref, $oldref)){ #is it old user?
 				return 1;
@@ -200,10 +243,10 @@ sub print_base{
 			print "my \$user_$i = (\n";
 				foreach $temp (@important_headers){
 					print "\t\'$temp\' => \'$$_{$temp}\',\n"; #warning if it unitialized
-
 				}
 			print ")\n\n";
-			print "PACKET:$$_{packet}\n";
+			# my $temp324 = $$_{"packet"};
+			# print "PACKET:$temp324\n\n";
 			++$i;
 		}
 	}
