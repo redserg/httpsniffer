@@ -16,7 +16,7 @@ my @user_base;
 # hash by ack of hash by seq of data
 my %sessions_by_ack;	
 my $structure_type = "p";
-my $warnings_enable_flag = 0;
+# my $warnings_enable_flag = 0;
 my $default_filter = "tcp and port 80 ";
 
 my $packet_num=0;
@@ -31,7 +31,7 @@ my @important_headers = (
 	 
 	);
 
-my $help_str = "sniffer.pl [ -c count ] [ -w warnings] [ -pxy structure type]\n[ - i interface ]  [ BPF ]\nOR\n[ -f file] [ BPF ]\n";
+my $help_str = "sniffer.pl [ -c count ] [ -pxy structure type]\n[ - i interface ]  [ BPF ]\nOR\n[ -f file] [ BPF ]\n";
 
 my $count = 0x7fffffff;
 my @args;
@@ -52,9 +52,6 @@ while (defined ($_ = shift @ARGV)){	# Flags
 	}
 	elsif($_ eq "-y"){
 		$structure_type = "y";
-	}
-	elsif($_ eq "-w"){
-		$warnings_enable_flag = 1;
 	}
 	else{
 		push (@args,$_);
@@ -145,51 +142,7 @@ sub process_pcap{
 sub process_packet {
 	my($user_data, $header, $packet) = @_;
 	++$packet_num;
-	warn "$packet_num\n" if $warnings_enable_flag;
-	#warn "PACKET:\n$packet\nEND\n";
-		#	Net::Pcap::pcap_dump($user_data, $header, $packet);
-		#&push_http_pack (extract_http_pack($packet));
-		# # print "RAW_PACKET\n$packet\nEND\n";
-		# # ##temporaly i input other functions here
-		# # $packet = $header . $packet;
-		# my $tcp_obj = NetPacket::TCP->decode(
-		#  	NetPacket::IP::ip_strip(
-		#  		NetPacket::Ethernet::eth_strip(
-		# 			$packet
-		# 		)
-		# 	)
-		# );	
-		# # print "\nFORMATED_PACKET\n".$tcp_obj->{data}."\nEND\n";
-
-		# my (@packet_by_str) = split /\R/, $packet;
-		# my $newref;
-		# my $oldref;
-		# my $Request_Header_flag = 0;
-		# foreach (@packet_by_str){
-		# 	if(m/^(.+?):\h*(.+)$/){
-		# 		#make a new hash from important headers by this packet
-		# 		if (&is_important($1) ){
-		# 			${$newref}{$1} = $2;
-		# 			$Request_Header_flag = 1; 
-		# 		}
-
-		# 	}		
-		# } 
-		# if($Request_Header_flag){
-		# 	# return 0 unless (defined(${$newref}{"User-Agent"}));
-		# 	foreach (@important_headers){
-		# 		${$newref}{$_} = "" unless(defined(${$newref}{$_}));		
-		# 	}
-		# 	# ${$newref}{"packet"} = $packet;
-		# 	foreach $oldref (@user_base){
-		# 		if (&user_eq($newref, $oldref)){ #is it old user?
-		# 			return 1;
-		# 		}
-		# 	}
-		# 	push @user_base, $newref; #if it new
-		# 	return 2;
-		# }
-
+	# warn "$packet_num\n" if $warnings_enable_flag;
 
 	my $tcp_obj = &extract_http_pack($packet);
 
@@ -198,7 +151,7 @@ sub process_packet {
 	${ $sessions_by_ack{$tcp_obj->{acknum}} }{$tcp_obj->{seqnum}} = $tcp_obj->{data};
 
 	if ($tcp_obj->{flags} & PSH){
-		warn "p\n" if $warnings_enable_flag;
+		# warn "p\n" if $warnings_enable_flag;
 
 		my $data;
 		my @seqnums_by_increase = sort (keys (%{ $sessions_by_ack{$tcp_obj->{acknum}} }));
@@ -209,8 +162,8 @@ sub process_packet {
 
 		&push_http_pack($data);
 
-		warn "$tcp_obj->{acknum}\n" if $warnings_enable_flag;
-		warn "$data\n" if $warnings_enable_flag;
+		# warn "$tcp_obj->{acknum}\n" if $warnings_enable_flag;
+		# warn "$data\n" if $warnings_enable_flag;
 
 		delete $sessions_by_ack{$tcp_obj->{acknum}};
 	}
@@ -241,18 +194,7 @@ sub push_http_pack {	# get inf from packet and push it in base
 				${$newref}{$1} = $2;
 				$Request_Header_flag = 1; 
 			}
-			#else{
-				#warn "NOTIMPHEADER(or is ib base):\t$1\nIN:$_\n";
-			#}
-			#warn "PASSed:\t\t$_\n";
-		}		
-		#elsif($_ eq ""){	# тело отделено от заголовка строкой
-		#	warn "EMPTY:\t\t$_\n";
-		#	last;
-		#}
-		#else{
-		#	warn "ABORTED:\t\t$_\n";
-		#}
+		}	
 	} 
 	#if this packet is from new user, add it to array of bases
 	if($Request_Header_flag){
@@ -277,9 +219,7 @@ sub print_base{
 				foreach $temp (@important_headers){
 					print "\t\'$temp\' => \'$$_{$temp}\',\n"; #warning if it unitialized
 				}
-			print ")\n\n";
-			# my $temp324 = $$_{"packet"};
-			# print "PACKET:$temp324\n\n";
+			print ").\n\n";
 			++$i;
 		}
 	}
