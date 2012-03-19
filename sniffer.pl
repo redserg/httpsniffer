@@ -219,7 +219,7 @@ sub print_base{
 				foreach $temp (@important_headers){
 					print "\t\'$temp\' => \'$$_{$temp}\',\n"; #warning if it unitialized
 				}
-			print ").\n\n";
+			print ");\n\n";
 			++$i;
 		}
 	}
