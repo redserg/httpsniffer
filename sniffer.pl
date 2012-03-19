@@ -8,12 +8,18 @@ use Net::Pcap::Reassemble;
   use NetPacket::TCP;
 #use XML::Simple;
 #use YAML;
-$Net::Pcap::Reassemble::debug = 1;
+
+# $Net::Pcap::Reassemble::debug = 1;
 
 #хеш ссылок на массив значений заголовков, по названиям
 my @user_base; 
+# hash by ack of hash by seq of data
+my %sessions_by_ack;	
 my $structure_type = "p";
+my $warnings_enable_flag = 0;
 my $default_filter = "tcp and port 80 ";
+
+my $packet_num=0;
 
 my @important_headers = (
 	"User-Agent",
@@ -25,6 +31,8 @@ my @important_headers = (
 	 
 	);
 
+my $help_str = "sniffer.pl [ -c count ] [ -w warnings] [ -pxy structure type]\n[ - i interface ]  [ BPF ]\nOR\n[ -f file] [ BPF ]\n";
+
 my $count = 0x7fffffff;
 my @args;
 
@@ -33,7 +41,7 @@ while (defined ($_ = shift @ARGV)){	# Flags
 		$count = shift @ARGV;
 	}
 	elsif($_ eq "-h"){
-		warn "sniffer.pl [ -c count ] [ -pxy ]\n[ - i interface ]  [ BPF ]\nOR\n[ -f file] [ BPF ]\n";
+		warn $help_str;
 		exit (0);
 	}
 	elsif($_ eq "-p"){
@@ -44,6 +52,9 @@ while (defined ($_ = shift @ARGV)){	# Flags
 	}
 	elsif($_ eq "-y"){
 		$structure_type = "y";
+	}
+	elsif($_ eq "-w"){
+		$warnings_enable_flag = 1;
 	}
 	else{
 		push (@args,$_);
@@ -103,14 +114,14 @@ if(defined($_ = $ARGV[0])){
 
 	}
 	else{
-		die "bad sintax:$_\nsniffer.pl [ -c count ] \n[ - i interface ]  [ BPF ]\nOR\n[ -f file] [ BPF ]\n";
+		die "bad syntax:$_\nsniffer.pl" . $help_str;
 	}
 
 &print_base();
 
 	exit (0);
 }
-warn "sniffer.pl [ -c count ] [ -pxy ]\n[ - i interface ]  [ BPF ]\nOR\n[ -f file] [ BPF ]\n";
+warn $help_str;
 exit (-1);
 
 sub build_filter{
@@ -133,6 +144,8 @@ sub process_pcap{
 }
 sub process_packet {
 	my($user_data, $header, $packet) = @_;
+	++$packet_num;
+	warn "$packet_num\n" if $warnings_enable_flag;
 	#warn "PACKET:\n$packet\nEND\n";
 		#	Net::Pcap::pcap_dump($user_data, $header, $packet);
 		#&push_http_pack (extract_http_pack($packet));
@@ -178,8 +191,31 @@ sub process_packet {
 		# }
 
 
+	my $tcp_obj = &extract_http_pack($packet);
 
-	&push_http_pack($packet); #(&extract_http_pack($packet));
+	# Fragmentation!!!
+
+	${ $sessions_by_ack{$tcp_obj->{acknum}} }{$tcp_obj->{seqnum}} = $tcp_obj->{data};
+
+	if ($tcp_obj->{flags} & PSH){
+		warn "p\n" if $warnings_enable_flag;
+
+		my $data;
+		my @seqnums_by_increase = sort (keys (%{ $sessions_by_ack{$tcp_obj->{acknum}} }));
+
+		foreach (@seqnums_by_increase){
+			$data .= ${ $sessions_by_ack{$tcp_obj->{acknum}} }{$_};
+		}
+
+		&push_http_pack($data);
+
+		warn "$tcp_obj->{acknum}\n" if $warnings_enable_flag;
+		warn "$data\n" if $warnings_enable_flag;
+
+		delete $sessions_by_ack{$tcp_obj->{acknum}};
+	}
+
+	 #(&extract_http_pack($packet));
 }
 sub extract_http_pack{
 	my ($packet) = @_;
@@ -189,9 +225,8 @@ sub extract_http_pack{
 				$packet
 			)
 		)
-	);
-	#	warn "\tSTART\n$tcp_obj->{data} \n\tEND\n";
-	return $tcp_obj->{data};
+	);	
+	return $tcp_obj;
 }
 sub push_http_pack {	# get inf from packet and push it in base
 	my ($packet) = @_;
